@@ -1,0 +1,1565 @@
+---
+output: pdf_document
+---
+
+# Load Data
+```{r include=FALSE}
+library(dplyr)
+library(plotly)
+library(ggplot2)
+library(FactoMineR)
+library(factoextra)
+library(ggcorrplot)
+library(pheatmap)
+library(tidyverse)
+library(gridExtra)
+library(knitr)
+library(fuzzyjoin)
+library(GGally)
+shooting <- readxl::read_excel("Shooting.xlsx")
+passing <- readxl::read_excel("Passing.xlsx")
+passtypes <- readxl::read_excel("Pass Types.xlsx")
+gsc <- readxl::read_excel("GSC.xlsx")
+defensive <- readxl::read_excel("Defensive.xlsx")
+possession <- readxl::read_excel("Possession.xlsx")
+misc <- readxl::read_excel("Misc.xlsx")
+```
+# Function to remove column name and row number repetition
+```{r}
+preprocess <- function(df) {
+  colnames(df) <- as.character(unlist(df[1,]))
+  df$Rk <- as.character(df$Rk)
+  df <- df[df$Rk != "Rk", ]
+  df <- df[ , -which(colnames(df) == "Matches")]
+  df <- df[ , -which(colnames(df) == "Rk")]
+  return(df)
+} 
+
+shooting <- preprocess(shooting)
+passing <- preprocess(passing)
+passtypes <- preprocess(passtypes)
+gsc <- preprocess(gsc)
+defensive <- preprocess(defensive)
+possession <- preprocess(possession)
+misc <- preprocess(misc)
+```
+# Ensure no repetition of column names
+```{r}
+names(shooting) = c('Player','Nation','Pos','Squad','Age','Born','90s','Gls','Sh','SoT','SoT%','Sh p90','SoT p90','Gls pSh','Gls pSoT','Sh Dist','Sh FK','PK','PKA','xG','npxG','npxG pSh','G-xG','npG-xG')
+
+names(defensive) = c('Player','Nation','Pos','Squad','Age','Born','90s','TacklesA','TacklesW','TklDef3rd','TklMid3rd','TklAtt3rd','1v1W','1v1A','1v1%','Past','Blocks','ShBlocked','PassBlocked','Int','Tkl+Int','Clr','Err')
+
+names(gsc) = c('Player','Nation','Pos','Squad','Age','Born','90s','SCA','SCA90','SCAPassLive','SCAPassDead','SCADrib','SCASh','SCAFld','SCADef','GCA','GCA90','GCAPassLive','GCAPassDead','GCADrib','GCASh','GCAFld','GCADef')
+
+names(misc) = c('Player','Nation','Pos','Squad','Age','Born','90s','YCrd','RCrd','2YCrd','Fls','Fld','Off','Crs','Int','TacklesW','PKwon','PKcon','OG','Recov','AerW','AerL','Aer%')
+
+names(passing) = c('Player','Nation','Pos','Squad','Age','Born','90s','PassCmp','PassA','Pass%','PassTotDist','PassProgDist','ShortPassCmp','ShortPassA','ShortPass%','MedPassCmp','MedPassA','MedPass%','LongPassCmp','LongPassA','LongPass%','Ast','xAG','xA','A-xA','Key Passes','F3 Passes','PA Passes','PA Crosses','Prog Passes')
+
+names(possession) = c('Player','Nation','Pos','Squad','Age','Born','90s','Touches','Touches DefPA','Touches Def3','Touches Mid3','Touches Att3','Touches AttPA','Touches Live','DribA','DribCmp','Drib%','Tackled','Tackled%','Carries','CarryTotDist','CarryProgDist','Prog Carries','F3 Carries','PA Carries','Mis','Dis','RecA','Prog Rec')
+
+names(passtypes) = c('Player','Nation','Pos','Squad','Age','Born','90s','PassA','Live Passes','Dead Passes','PassesFK','Thruballs','Switches','Crs','Throwins','CK','InCK','OutCK','StCK','PassCmp','PassOff','PassBlocked')
+```
+# Join all datasets
+```{r}
+prem23 <- shooting %>%
+  full_join(passing, by = c("Player", "Nation", "Pos", "Squad", "Age", "Born", "90s"))%>%
+  full_join(passtypes, by = c("Player", "Nation", "Pos", "Squad", "Age", "Born", "90s")) %>%
+  full_join(gsc, by = c("Player", "Nation", "Pos", "Squad", "Age", "Born", "90s")) %>%
+  full_join(defensive, by = c("Player", "Nation", "Pos", "Squad", "Age", "Born", "90s")) %>%
+  full_join(possession, by = c("Player", "Nation", "Pos", "Squad", "Age", "Born", "90s")) %>%
+  full_join(misc, by = c("Player", "Nation", "Pos", "Squad", "Age", "Born", "90s"))
+```
+# Remove duplicate columns Crs, PassA, Int etc.
+```{r}
+prem23 <- prem23 %>%
+  select(-matches("\\.y$"))
+```
+# Converting players to one main position, make columns numeric and minimum of 3 90s played
+```{r}
+prem23$Pos <- sapply(strsplit(as.character(prem23$Pos), ","), `[`, 1)
+
+prem23 <- prem23 %>%
+  mutate(across(.cols = -c(Player, Nation, Pos, Squad, Born), as.numeric))
+
+prem23 <- prem23 %>%
+  filter(`90s` >= 3)
+
+```
+# Filtering into positions
+```{r}
+prem_outfield <- prem23 %>%
+  filter(Pos != "GK")
+
+prem_df <- prem23 %>%
+  filter(Pos == "DF")
+
+write.csv(prem_df, "Prem_DF.csv")
+
+prem_mf <- prem23 %>%
+  filter(Pos == "MF")
+
+write.csv(prem_mf, "Prem_MF.csv")
+
+prem_fw <- prem23 %>%
+  filter(Pos == "FW")
+
+write.csv(prem_fw, "Prem_FW.csv")
+
+prem_gk <- prem23 %>%
+  filter(Pos == "GK")
+```
+
+## Scale function
+```{r}
+scale_function <- function(x) {
+  x_mean <- mean(x)
+  (x - x_mean) / x_mean
+}
+```
+
+
+## Sorted loadings function
+```{r}
+get_sorted_loadings <- function(loadings, component_number) {
+  
+  sorted_loadings <- loadings[, component_number, drop = FALSE]
+  
+  sorted_loadings <- sorted_loadings[order(abs(sorted_loadings[, 1]), decreasing = TRUE), , drop = FALSE]
+  
+  sorted_loadings_df <- data.frame(
+    variable = rownames(sorted_loadings),
+    loading = format(sorted_loadings[, 1], digits = 2, scientific = FALSE)
+  )
+  
+  return(sorted_loadings_df)
+}
+```
+
+
+## Min Max scale function
+```{r}
+min_max_scale <- function(x) {
+  return((x - min(x)) / (max(x) - min(x)) * 100)
+}
+```
+
+
+## DEFENDERS 
+## Pre-processing
+```{r}
+prem_def <- read.csv("Prem_DF.csv")
+
+# Remove non-numeric columns, defenders don't take penalties so npG-xG is same as G-xG
+prem_def_clean <- prem_def %>%
+  select(-c(X, Player, Born, Pos, Nation, Squad, npG.xG, A.xA)) %>%
+  select(where(~ !any(is.na(.))))
+
+# PK and PKA have zero variance, removed for defenders
+prem_def_zero_var_cols <- sapply(prem_def_clean, function(x) var(x) == 0)
+
+prem_def_clean <- prem_def_clean[, !prem_def_zero_var_cols]
+
+```
+
+## Heatmap
+```{r}
+def_cor <- cor(prem_def_clean)
+png(filename = "Defender_heatmap.png", width = 1200, height = 1200)
+
+
+pheatmap(def_cor, 
+         main = "Correlation Heatmap with Hierarchical Clustering",
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         breaks = seq(-1, 1, length.out = 101), 
+         legend_breaks = seq(-1, 1, 0.5),       
+         legend_labels = seq(-1, 1, 0.5),     
+         cluster_rows = TRUE, 
+         cluster_cols = TRUE,
+         fontsize_row = 8,                      
+         fontsize_col = 8,                      
+         angle_col = 90)  
+```
+
+
+ 
+## PCA
+```{r}
+# Scaling
+prem_def_scale <- as.data.frame(lapply(prem_def_clean, scale_function))
+```
+
+```{r}
+# PCA
+prem_def_PCA <- princomp(prem_def_scale)
+prem_def_PCA_sum <- summary(prem_def_PCA)
+def_scree <- fviz_eig(prem_def_PCA, addlabels = TRUE, title = "Defender Principal Components", xlab = "Principal Components", ylab = "Variance Explained (%)")
+
+def_scree + 
+  ggtitle("Defenders Principal Components") + 
+  theme(plot.title = element_text(hjust = 0.5),      
+        panel.grid.major.x = element_blank(),
+        axis.title.x = element_blank(),
+        panel.grid.minor = element_blank()) +         
+  geom_bar(stat = "identity", fill = "#56B4E9")
+
+
+
+```
+
+```{r}
+# Loadings
+prem_def_loadings <- as.data.frame(prem_def_PCA$loadings[, 1:20])
+
+def_pc1 <- get_sorted_loadings(prem_def_loadings, 1)
+def_pc2 <- get_sorted_loadings(prem_def_loadings, 2)
+def_pc3 <- get_sorted_loadings(prem_def_loadings, 3)
+def_pc4 <- get_sorted_loadings(prem_def_loadings, 4)
+def_pc5 <- get_sorted_loadings(prem_def_loadings, 5)
+
+
+def_pc1_head <- tableGrob(head(def_pc1, n=5))
+def_pc2_head <- tableGrob(head(def_pc2, n=5))
+def_pc3_head <- tableGrob(head(def_pc3, n=5))
+def_pc4_head <- tableGrob(head(def_pc4, n=5))
+def_pc5_head <- tableGrob(head(def_pc5, n=5))
+
+
+```
+
+```{r}
+def_pc1_top5 <- head(def_pc1, n=5)
+
+def_pc1_labels <- c("SCAPassDead" = "SCA Set Piece", "OutCK" = "Outswing CK", "Sh.FK" = "FK Shot", "StCK" = "Straight CK", "InCK" = "Inswing CK", "CK" = "Corner Kick")
+
+ggplot(def_pc1_top5, aes(x = reorder(variable, abs(as.numeric(loading))), y = as.numeric(loading))) +
+  geom_bar(stat = "identity", fill = "#56B4E9") +
+  labs(title = "DEF Principal Component 1 (41.3%)",
+       y = "Loading") +
+  scale_x_discrete(labels = def_pc1_labels) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),   
+        panel.grid.major.x = element_blank(),
+        axis.title.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold")) 
+
+
+def_pc2_top5 <- head(def_pc2, n=5)
+
+def_pc2_labels <- c("SCADef" = "SCA Defending", "GCADef" = "GCA Defending", "GCAFld" = "GCA Foul Drawn", "RCrd" = "Red Card", "G.xG" = "Goals\n - Expected Goals", "X2YCrd" = "2 Yellow Cards")
+
+ggplot(def_pc2_top5, aes(x = reorder(variable, abs(as.numeric(loading))), y = as.numeric(loading))) +
+  geom_bar(stat = "identity", fill = "#56B4E9") +
+  labs(title = "DEF Principal Component 2 (11.9%)",
+       y = "Loading") +
+  scale_x_discrete(labels = def_pc2_labels) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),   
+        panel.grid.major.x = element_blank(),
+        axis.title.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold")) 
+
+def_pc3_top5 <- head(def_pc3, n=5)
+
+def_pc3_labels <- c("GCAPassDead" = "GCA Set Piece", "PA.Carries" = "Penalty Area\n Dribbles", "StCK" = "Straight CK", "GCADrib" = "GCA Dribble", "RCrd" = "Red Card", "X2YCrd" = "2 Yellow Cards")
+
+ggplot(def_pc3_top5, aes(x = reorder(variable, abs(as.numeric(loading))), y = as.numeric(loading))) +
+  geom_bar(stat = "identity", fill = "#56B4E9") +
+  labs(title = "DEF Principal Component 3 (8.9%)",
+       y = "Loading") +
+  scale_x_discrete(labels = def_pc3_labels) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),   
+        panel.grid.major.x = element_blank(),
+        axis.title.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold")) 
+
+def_pc4_top5 <- head(def_pc4, n=5)
+
+def_pc4_labels <- c("StCK" = "Straight CK", "PKwon" = "Penalties Won", "GCADrib" = "GCA Dribble", "RCrd" = "Red Card", "GCADef" = "GCA Defending", "X2YCrd" = "2 Yellow Cards")
+
+ggplot(def_pc4_top5, aes(x = reorder(variable, abs(as.numeric(loading))), y = as.numeric(loading))) +
+  geom_bar(stat = "identity", fill = "#56B4E9") +
+  labs(title = "DEF Principal Component 4 (7.8%)",
+       y = "Loading") +
+  scale_x_discrete(labels = def_pc4_labels) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),   
+        panel.grid.major.x = element_blank(),
+        axis.title.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"))
+
+def_pc5_top5 <- head(def_pc5, n=5)
+
+def_pc5_labels <- c("X2YCrd" = "2 Yellow Cards", "OutCK" = "Outswing CK", "GCAPassDead" = "GCA Set Piece", "StCK" = "Straight CK", "GCAFld" = "GCA Foul Drawn", "PKwon" = "Penalties Won")
+
+ggplot(def_pc5_top5, aes(x = reorder(variable, abs(as.numeric(loading))), y = as.numeric(loading))) +
+  geom_bar(stat = "identity", fill = "#56B4E9") +
+  labs(title = "DEF Principal Component 5 (4.5%)",
+       y = "Loading") +
+  scale_x_discrete(labels = def_pc5_labels) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),   
+        panel.grid.major.x = element_blank(),
+        axis.title.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold")) 
+
+
+```
+
+
+```{r}
+# Component Scores
+prem_def_scores <- as.data.frame(prem_def_PCA$scores)
+
+prem_def_scores$Comp.3 <- -prem_def_scores$Comp.3
+prem_def_scores$Comp.4 <- -prem_def_scores$Comp.4
+prem_def_scores$Comp.5 <- -prem_def_scores$Comp.5
+```
+
+```{r}
+# Sum and return player names
+prem_def_scores$Overall_Score <- rowSums(prem_def_scores)
+
+def_names <- prem_def$Player
+
+prem_def_scores <- prem_def_scores %>%
+  mutate(Player = def_names)
+```
+
+```{r}
+# MinMax scale and sort
+prem_def_scores <- prem_def_scores %>%
+  mutate(Overall_Score = min_max_scale(Overall_Score))
+
+prem_def_final <- prem_def_scores %>%
+  select(Player,Overall_Score) %>%
+  arrange(desc(Overall_Score))
+```
+
+```{r}
+def_top10_score <- prem_def_final %>%
+  top_n(10, Overall_Score) %>%
+  arrange(desc(Overall_Score))
+
+ ggplot(def_top10_score, aes(x = reorder(Player, Overall_Score), y = Overall_Score)) +
+  geom_segment(aes(xend = Player, yend = 0), color = "#56B4E9") +
+  geom_point(color = "#56B4E9", size = 4) +
+  coord_flip() +  # Flip coordinates to make it horizontal
+  labs(title = "Top 10 Defenders",
+       x = "Player",
+       y = "Overall Score") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5), 
+    panel.grid.major.y = element_blank(),   
+    panel.grid.minor.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    axis.text.y = element_text(size = 10, face = "bold"))
+```
+
+
+```{r}
+def_score_head <- tableGrob(head(prem_def_final, n=10))
+def_score_tail <- tableGrob(tail(prem_def_final, n=10))
+
+def_scree
+
+grid.arrange(def_pc1_head, def_pc2_head, def_pc3_head,
+  def_pc4_head, def_pc5_head,
+  ncol=3)
+
+grid.arrange(
+  def_score_head, def_score_tail,
+  ncol = 2
+)
+```
+
+# Key Raw Variables vs component scores
+```{r}
+def_plot_df <- prem_def %>%
+  select(Pos, StCK, GCADef, X2YCrd, RCrd, PKwon, GCADrib, G.xG, A.xA, GCADrib, PA.Carries, GCAFld) %>% 
+  bind_cols(prem_def_scores)
+```
+
+```{r}
+def_1 <- ggplot(def_plot_df, aes(x = StCK, y = Comp.1, label = Player)) +
+  geom_point(color = 'blue') +
+  geom_text(aes(label = Player), vjust = 1.5, hjust = 1.5) +
+  labs(title = "StCK vs. Principal Component 1",
+       x = "StCK",
+       y = "Principal Component 1 Score") +
+  theme_minimal()
+
+def_1 <- ggplotly(def_1)
+def_1
+
+def_2 <- ggplot(def_plot_df, aes(x = GCADef, y = Comp.2, label = Player)) +
+  geom_point(color = 'blue') +
+  geom_text(aes(label = Player), vjust = 1.5, hjust = 1.5) +
+  labs(title = "GCADef vs. Principal Component 2",
+       x = "GCADef",
+       y = "Principal Component 2 Score") +
+  theme_minimal()
+def_2 <- ggplotly(def_2)
+def_2
+
+def_3 <- ggplot(def_plot_df, aes(x = X2YCrd, y = Comp.3, label = Player)) +
+  geom_point(color = 'blue') +
+  geom_text(aes(label = Player), vjust = 1.5, hjust = 1.5) +
+  labs(title = "X2YCrd vs. Principal Component 3",
+       x = "X2YCrd",
+       y = "Principal Component 3 Score") +
+  theme_minimal()
+def_3 <- ggplotly(def_3)
+def_3
+
+def_4 <- ggplot(def_plot_df, aes(x = GCADrib, y = Comp.4, label = Player)) +
+  geom_point(color = 'blue') +
+  geom_text(aes(label = Player), vjust = 1.5, hjust = 1.5) +
+  labs(title = "GCADrib vs. Principal Component 4",
+       x = "GCADrib",
+       y = "Principal Component 4 Score") +
+  theme_minimal()
+def_4 <- ggplotly(def_4)
+def_4
+
+def_5 <- ggplot(def_plot_df, aes(x = GCAFld, y = Comp.5, label = Player)) +
+  geom_point(color = 'blue') +
+  geom_text(aes(label = Player), vjust = 1.5, hjust = 1.5) +
+  labs(title = "GCAFld vs. Principal Component 5",
+       x = "GCAFld",
+       y = "Principal Component 5 Score") +
+  theme_minimal()
+def_5 <- ggplotly(def_5)
+def_5
+
+```
+
+```{r}
+
+def_pc1_vs_pc2 <- ggplot(prem_def_scores, aes(x = Comp.1, y = Comp.2, label = Player)) +
+  geom_point(color = '#56B4E9', alpha = 0.6, size = 2) +
+  labs(title = "PC1 vs PC2 Scores",
+       x = "Principal Component 1 (PC1)",
+       y = "Principal Component 2 (PC2)") +
+  theme_minimal()
+
+def_pc1_vs_pc2 <-ggplotly(def_pc1_vs_pc2)
+
+def_pc1_vs_pc2
+```
+
+```{r}
+def_pc2_vs_pc3 <- ggplot(prem_def_scores, aes(x = Comp.2, y = Comp.3, label = Player)) +
+  geom_point(color = '#56B4E9', alpha = 0.6, size = 2) +
+  labs(title = "PC1 vs PC2 Scores",
+       x = "Principal Component 2 (PC2)",
+       y = "Principal Component 3 (PC3)") +
+  theme_minimal()
+
+def_pc2_vs_pc3 <-ggplotly(def_pc2_vs_pc3)
+
+def_pc2_vs_pc3
+```
+
+
+## MIDFIELDERS
+## Pre-processing
+```{r}
+prem <- read.csv("Prem23.csv")
+
+prem_mid <- prem %>%
+  filter(Pos == "MF")
+
+prem_mid_clean <- prem_mid %>%
+  select(-c(Player, Born, Pos, Nation, Squad, A.xA)) %>%
+  select(where(~ !any(is.na(.))))
+
+
+```
+
+## Heatmap
+```{r}
+mid_cor <- cor(prem_mid_clean)
+png(filename = "Midfielder_heatmap.png", width = 1200, height = 1200)
+
+
+pheatmap(mid_cor, 
+         main = "Correlation Heatmap with Hierarchical Clustering",
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         breaks = seq(-1, 1, length.out = 101),  
+         legend_breaks = seq(-1, 1, 0.5),       
+         legend_labels = seq(-1, 1, 0.5),      
+         cluster_rows = TRUE, 
+         cluster_cols = TRUE,
+         fontsize_row = 8,                      
+         fontsize_col = 8,                      
+         angle_col = 90)  
+```
+
+
+ 
+## PCA
+```{r}
+# Scaling
+prem_mid_scale <- as.data.frame(lapply(prem_mid_clean, scale_function))
+```
+
+```{r}
+# PCA
+prem_mid_PCA <- princomp(prem_mid_scale)
+prem_mid_PCA_sum <- summary(prem_mid_PCA)
+mid_scree <- fviz_eig(prem_mid_PCA, addlabels = TRUE, title = "Midfielder Principal Components", xlab = "Principal Components", ylab = "Variance Explained (%)")
+
+mid_scree + 
+  ggtitle("Midfielders Principal Components") + 
+  theme(plot.title = element_text(hjust = 0.5),      
+        panel.grid.major.x = element_blank(),
+        axis.title.x = element_blank(),
+        panel.grid.minor = element_blank()) +        
+  geom_bar(stat = "identity", fill = "#009E73")
+
+
+
+```
+
+```{r}
+# Loadings
+prem_mid_loadings <- as.data.frame(prem_mid_PCA$loadings[, 1:20])
+
+mid_pc1 <- get_sorted_loadings(prem_mid_loadings, 1)
+mid_pc2 <- get_sorted_loadings(prem_mid_loadings, 2)
+
+
+
+mid_pc1_head <- tableGrob(head(mid_pc1, n=5))
+mid_pc2_head <- tableGrob(head(mid_pc2, n=5))
+
+
+
+```
+
+```{r}
+mid_pc1_top5 <- head(mid_pc1, n=5)
+
+mid_pc1_labels <- c("Gls" = "Goals", "OG" = "Own Goals", "Sh.FK" = "FK Shot", "StCK" = "Straight CK", "G.xG" = "Goals\n - Expected Goals", "npG.xG" = "Non Penalty Goals\n - Expected Goals")
+
+ggplot(mid_pc1_top5, aes(x = reorder(variable, abs(as.numeric(loading))), y = as.numeric(loading))) +
+  geom_bar(stat = "identity", fill = "#009E73") +
+  ylim(-0.8, 0.2) +
+  labs(title = "MID Principal Component 1 (85.9%)",
+       x = "Variable",
+       y = "Loading") +
+  scale_x_discrete(labels = mid_pc1_labels) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),   
+        panel.grid.major.x = element_blank(),
+        axis.title.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"))
+
+mid_pc2_top5 <- head(mid_pc2, n=5)
+
+mid_pc2_labels <- c("SCAPassDead" = "SCA Set Piece", "GCAPassDead" = "GCA Piece", "Sh.FK" = "FK Shot", "OutCK" = "Outswing CK", "PKA" = "Penalty Attempts", "PK" = "Penalty Goals")
+  
+ggplot(mid_pc2_top5, aes(x = reorder(variable, abs(as.numeric(loading))), y = as.numeric(loading))) +
+  geom_bar(stat = "identity", fill = "#009E73") +
+  labs(title = "MID Principal Component 2 (3.7%)",
+       x = "Variable",
+       y = "Loading") +
+  scale_x_discrete(labels = mid_pc2_labels) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),   
+        panel.grid.major.x = element_blank(), 
+        axis.title.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(size = 10, face = "bold"))
+
+```
+
+
+
+```{r}
+# Component Scores
+prem_mid_scores <- as.data.frame(prem_mid_PCA$scores)
+```
+
+```{r}
+# Sum and return player names
+prem_mid_scores$Overall_Score <- rowSums(prem_mid_scores)
+
+mid_names <- prem_mid$Player
+
+prem_mid_scores <- prem_mid_scores %>%
+  mutate(Player = mid_names)
+```
+
+```{r}
+# MinMax scale and sort
+prem_mid_scores <- prem_mid_scores %>%
+  mutate(Overall_Score = min_max_scale(Overall_Score))
+
+prem_mid_final <- prem_mid_scores %>%
+  select(Player,Overall_Score) %>%
+  arrange(desc(Overall_Score))
+```
+
+```{r}
+mid_top10_score <- prem_mid_final %>%
+  top_n(10, Overall_Score) %>%
+  arrange(desc(Overall_Score))
+
+ ggplot(mid_top10_score, aes(x = reorder(Player, Overall_Score), y = Overall_Score)) +
+  geom_segment(aes(xend = Player, yend = 0), color = "#009E73") +
+  geom_point(color = "#009E73", size = 4) +
+  coord_flip() +  
+  labs(title = "Top 10 Midfielders",
+       x = "Player",
+       y = "Overall Score") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),  
+    panel.grid.major.y = element_blank(),   
+    panel.grid.minor.x = element_blank(), 
+    axis.title.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    axis.text.y = element_text(size = 10, face = "bold"))
+```
+
+
+
+```{r}
+mid_score_head <- tableGrob(head(prem_mid_final, n=10))
+mid_score_tail <- tableGrob(tail(prem_mid_final, n=10))
+
+mid_scree
+
+grid.arrange(mid_pc1_head, mid_pc2_head,
+  ncol=2)
+
+grid.arrange(
+  mid_score_head, mid_score_tail,
+  ncol = 2
+)
+```
+
+# Key Raw Variables vs component scores
+```{r}
+mid_plot_df <- prem_mid %>%
+  select(Pos, PK, PKA, G.xG, npG.xG, OutCK, Sh.FK) %>% 
+  bind_cols(prem_mid_scores)
+```
+
+```{r}
+mid_1 <- ggplot(mid_plot_df, aes(x = npG.xG, y = Comp.1, label = Player)) +
+  geom_point(color = 'blue') +
+  geom_text(aes(label = Player), vjust = 1.5, hjust = 1.5) +
+  labs(title = "npG.xG vs. Principal Component 1",
+       x = "npG.xG",
+       y = "Principal Component 1 Score") +
+  theme_minimal()
+
+mid_1 <- ggplotly(mid_1)
+mid_1
+
+mid_2 <- ggplot(mid_plot_df, aes(x = Sh.FK, y = Comp.2, label = Player)) +
+  geom_point(color = 'blue') +
+  geom_text(aes(label = Player), vjust = 1.5, hjust = 1.5) +
+  labs(title = "Sh.FK vs. Principal Component 2",
+       x = "Sh.FK",
+       y = "Principal Component 2 Score") +
+  theme_minimal()
+mid_2 <- ggplotly(mid_2)
+mid_2
+
+
+```
+
+
+```{r}
+prem_mid_loadings$Variable <- rownames(prem_mid_loadings)
+```
+
+```{r}
+mid_pc1_vs_pc2 <- ggplot(prem_mid_scores, aes(x = Comp.1, y = Comp.2, label = Player)) +
+  geom_point(color = '#009E73', alpha = 0.6, size = 2) +
+  labs(title = "PC1 vs PC2 Scores",
+       x = "Principal Component 1 (PC1)",
+       y = "Principal Component 2 (PC2)") +
+  theme_minimal()
+
+mid_pc1_vs_pc2 <-ggplotly(mid_pc1_vs_pc2)
+
+
+```
+
+```{r}
+annotations <- list(
+  list(
+    x = prem_mid_scores$Comp.1[prem_mid_scores$Player == "Christian Eriksen"],
+    y = prem_mid_scores$Comp.2[prem_mid_scores$Player == "Christian Eriksen"],
+    text = "Christian Eriksen",
+    showarrow = TRUE,
+    arrowhead = 7,
+    ax = 20,
+    ay = -20
+  ),
+  list(
+    x = prem_mid_scores$Comp.1[prem_mid_scores$Player == "James Ward-Prowse"],
+    y = prem_mid_scores$Comp.2[prem_mid_scores$Player == "James Ward-Prowse"],
+    text = "James Ward-Prowse",
+    showarrow = TRUE,
+    arrowhead = 7,
+    ax = 20,
+    ay = -20
+  )
+)
+
+
+mid_pc1_vs_pc2 <- mid_pc1_vs_pc2 %>%
+  layout(annotations = annotations)
+
+mid_pc1_vs_pc2
+```
+
+## FORWARDS
+## Pre-processing
+```{r}
+prem <- read.csv("Prem23.csv")
+
+prem_fwd <- prem %>%
+  filter(Pos == "FW")
+
+prem_fwd_clean <- prem_fwd %>%
+  select(-c(Player, Born, Pos, Nation, Squad, A.xA)) %>%
+  select(where(~ !any(is.na(.))))
+
+```
+
+## Heatmap
+```{r}
+fwd_cor <- cor(prem_fwd_clean)
+png(filename = "Forward_heatmap.png", width = 1200, height = 1200)
+
+
+pheatmap(fwd_cor, 
+         main = "Correlation Heatmap with Hierarchical Clustering",
+         color = colorRampPalette(c("blue", "white", "red"))(100),
+         breaks = seq(-1, 1, length.out = 101),  # Define breaks from -1 to 1
+         legend_breaks = seq(-1, 1, 0.5),       # Define legend breaks
+         legend_labels = seq(-1, 1, 0.5),       # Define legend labels
+         cluster_rows = TRUE, 
+         cluster_cols = TRUE,
+         fontsize_row = 8,                      # Adjust font size for row names
+         fontsize_col = 8,                      # Adjust font size for column names
+         angle_col = 90)  
+```
+
+
+ 
+## PCA
+```{r}
+# Scaling
+prem_fwd_scale <- as.data.frame(lapply(prem_fwd_clean, scale_function))
+```
+
+```{r}
+# PCA
+prem_fwd_PCA <- princomp(prem_fwd_scale)
+prem_fwd_PCA_sum <- summary(prem_fwd_PCA)
+fwd_scree <- fviz_eig(prem_fwd_PCA, addlabels = TRUE, title = "Forwards Principal Components", xlab = "Principal Components", ylab = "Variance Explained (%)")
+
+
+fwd_scree + 
+  ggtitle("Forwards Principal Components") + 
+  theme(plot.title = element_text(hjust = 0.5),      
+        panel.grid.major.x = element_blank(),
+        axis.title.x = element_blank(),
+        panel.grid.minor = element_blank()) +         
+  geom_bar(stat = "identity", fill = "#CC79A7")
+
+
+```
+
+```{r}
+# Loadings
+prem_fwd_loadings <- as.data.frame(prem_fwd_PCA$loadings[, 1:20])
+
+fwd_pc1 <- get_sorted_loadings(prem_fwd_loadings, 1)
+fwd_pc2 <- get_sorted_loadings(prem_fwd_loadings, 2)
+
+
+
+fwd_pc1_head <- tableGrob(head(fwd_pc1, n=5))
+fwd_pc2_head <- tableGrob(head(fwd_pc2, n=5))
+
+
+
+```
+
+```{r}
+fwd_pc1_top5 <- head(fwd_pc1)
+
+fwd_pc1_labels <- c("RCrd" = "Red Card", "Gls" = "Goals", "X2YCrd" = "2 Yellow Cards", "PK" = "Penalty Goals", "G.xG" = "Goals\n - Expected Goals", "npG.xG" = "Non Penalty\n Goals - Expected\n Goals")
+
+ggplot(fwd_pc1_top5, aes(x = reorder(variable, abs(as.numeric(loading))), y = as.numeric(loading))) +
+  geom_bar(stat = "identity", fill = "#CC79A7") +
+  ylim(-1, 0.2) +
+  labs(title = "FWD Principal Component 1 (94.7%)",
+       x = "Variable",
+       y = "Loading") +
+  scale_x_discrete(labels = fwd_pc1_labels) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),   
+        panel.grid.major.x = element_blank(),
+        axis.title.x = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.text.x = element_text(size = 8, face = "bold"))
+```
+
+
+```{r}
+# Component Scores
+prem_fwd_scores <- as.data.frame(prem_fwd_PCA$scores)
+
+
+```
+
+```{r}
+# Sum and return player names
+prem_fwd_scores$Overall_Score <- rowSums(prem_fwd_scores)
+
+fwd_names <- prem_fwd$Player
+
+prem_fwd_scores <- prem_fwd_scores %>%
+  mutate(Player = fwd_names)
+```
+
+```{r}
+# MinMax scale and sort
+prem_fwd_scores <- prem_fwd_scores %>%
+  mutate(Overall_Score = min_max_scale(Overall_Score))
+
+prem_fwd_final <- prem_fwd_scores %>%
+  select(Player,Overall_Score) %>%
+  arrange(desc(Overall_Score))
+```
+
+```{r}
+fwd_top10_score <- prem_fwd_final %>%
+  top_n(10, Overall_Score) %>%
+  arrange(desc(Overall_Score))
+
+ ggplot(fwd_top10_score, aes(x = reorder(Player, Overall_Score), y = Overall_Score)) +
+  geom_segment(aes(xend = Player, yend = 0), color = "#CC79A7") +
+  geom_point(color = "#CC79A7", size = 4) +
+  coord_flip() +  
+  labs(title = "Top 10 Forwards",
+       x = "Player",
+       y = "Overall Score") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),  
+    panel.grid.major.y = element_blank(),   
+    panel.grid.minor.x = element_blank(), 
+    axis.title.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+        axis.text.y = element_text(size = 10, face = "bold"))
+```
+
+
+```{r}
+fwd_score_head <- tableGrob(head(prem_fwd_final, n=10))
+fwd_score_tail <- tableGrob(tail(prem_fwd_final, n=10))
+
+fwd_scree
+
+grid.arrange(fwd_pc1_head, fwd_pc2_head,
+  ncol=2)
+
+grid.arrange(
+  fwd_score_head, fwd_score_tail,
+  ncol = 2
+)
+```
+
+# Key Raw Variables vs component scores
+```{r}
+fwd_plot_df <- prem_fwd %>%
+  select(Pos, G.xG, npG.xG, X2YCrd, OG) %>% 
+  bind_cols(prem_fwd_scores)
+```
+
+```{r}
+fwd_1 <- ggplot(fwd_plot_df, aes(x = npG.xG, y = Comp.1, label = Player)) +
+  geom_point(color = 'blue') +
+  geom_text(aes(label = Player), vjust = 1.5, hjust = 1.5) +
+  labs(title = "npG.xG vs. Principal Component 1",
+       x = "npG.xG",
+       y = "Principal Component 1 Score") +
+  theme_minimal()
+
+fwd_1 <- ggplotly(fwd_1)
+fwd_1
+
+fwd_2 <- ggplot(fwd_plot_df, aes(x = X2YCrd, y = Comp.2, label = Player)) +
+  geom_point(color = 'blue') +
+  geom_text(aes(label = Player), vjust = 1.5, hjust = 1.5) +
+  labs(title = "X2YCrd vs. Principal Component 2",
+       x = "X2YCrd",
+       y = "Principal Component 2 Score") +
+  theme_minimal()
+fwd_2 <- ggplotly(fwd_2)
+fwd_2
+
+
+```
+
+```{r}
+prem_fwd_loadings$Variable <- rownames(prem_fwd_loadings)
+```
+
+```{r}
+fwd_pc1_vs_pc2 <- ggplot(prem_fwd_scores, aes(x = Comp.1, y = Comp.2, label = Player)) +
+  geom_point(color = 'blue', alpha = 0.6, size = 2) +
+  geom_text(aes(label = Player), size = 3, vjust = 1.5, hjust = 1.5, check_overlap = TRUE) +
+  labs(title = "PC1 vs PC2 Scores",
+       x = "Principal Component 1 (PC1)",
+       y = "Principal Component 2 (PC2)") +
+  theme_minimal()
+
+ggplotly(fwd_pc1_vs_pc2)
+```
+
+
+## Transfermarkt Values
+```{r}
+transfer_value <- readxl::read_excel("TransferMarket.xlsx")
+
+transfer_value_clean <- transfer_value %>%
+  select(-`Date of birth/Age`, -Height, -Joined)
+```
+#Remove players with - as transfer value
+```{r}
+transfer_value_clean <- transfer_value_clean %>%
+  filter(`Market value` != "-")
+```
+#Function to convert market values to numeric
+```{r}
+convert_market_value <- function(value) {
+ 
+  value <- gsub("€", "", value)
+  
+  if (grepl("m", value)) {
+    value <- as.numeric(gsub("m", "", value)) * 1e6
+  }
+  
+  else if (grepl("k", value)) {
+    value <- as.numeric(gsub("k", "", value)) * 1e3
+  }
+  
+  return(value)
+}
+transfer_value_clean <- transfer_value_clean %>%
+  mutate(`Market value` = sapply(`Market value`, convert_market_value))
+```
+#Remove scientific notation
+```{r}
+transfer_value_clean$`Market value` <- unname(transfer_value_clean$`Market value`)
+options(scipen=999)
+```
+
+```{r}
+transfer_value_clean <- transfer_value_clean %>%
+  select(-`Team`)
+```
+
+# Merge with prem outfielders
+```{r}
+ff_data  <- stringdist_left_join(prem_outfield, transfer_value_clean, by = "Player", max_dist = 0.1, method = "jw")
+```
+#Remove duplicates and keep distinct players on distinct teams
+```{r}
+ff_data <- ff_data %>%
+  distinct(Player.x, Squad, .keep_all = TRUE)
+```
+#Random forest data select
+```{r}
+forest_data <- ff_data %>%
+  select(-c(Player.x, Player.y, Nation, Squad, Born)) %>%
+  mutate(`Market value` = as.numeric(trimws(`Market value`)))
+```
+
+
+
+# Position splitting for model fit
+```{r}
+def_transfer <- forest_data %>%
+  filter(Pos == "DF")
+
+def_transfer <- def_transfer %>%
+  select(-Pos) %>%
+  select(where(~ !any(is.na(.))))
+```
+
+```{r}
+mid_transfer <- forest_data %>%
+  filter(Pos == "MF")
+
+mid_transfer <- mid_transfer %>%
+  select(-Pos) %>%
+  select(where(~ !any(is.na(.))))
+```
+
+```{r}
+fwd_transfer <- forest_data %>%
+  filter(Pos == "FW")
+
+fwd_transfer <- fwd_transfer %>%
+  select(-Pos) %>%
+  select(where(~ !any(is.na(.))))
+```
+
+## Random Forest
+
+# DEFENDERS
+```{r}
+library(caret)
+library(randomForest)
+set.seed(123456)
+def_index <- createDataPartition(def_transfer$`Market value`, 
+                             p=0.7,
+                             list=FALSE, 
+                             times = 1)
+def_transfer.train <- def_transfer[df_index,]
+def_transfer.test <- def_transfer[-df_index,]
+```
+
+```{r}
+def_rf_fit <- train(`Market value` ~ .,
+                               data = def_transfer.train,
+                               method = 'rf',
+                               importance = TRUE,
+                               trControl = trainControl(method = 'cv', number = 10))
+```
+
+```{r}
+def_rf_fit
+```
+
+```{r}
+varImp(def_rf_fit)
+def_var_importance <- varImp(def_rf_fit, scale = FALSE)
+
+def_var_importance_df <- data.frame(Variable = rownames(def_var_importance$importance), Importance = def_var_importance$importance[,1])
+
+def_var_importance_df <- def_var_importance_df %>%
+  arrange(desc(Importance))
+
+def_top_5_importance <- head(def_var_importance_df, 5)
+
+def_rf_labels <- c("CarryProgDist" = "Progressive Carrying\n Distance", "CarryTotDist" = "Total Carrying\n Distance", "DribCmp" = "Dribbles Complete", "ShortPassCmp" = "Short Pass\n Complete")
+
+ggplot(def_top_5_importance, aes(x = reorder(Variable, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "#56B4E9") +
+  coord_flip() +
+  labs(title = "DEF Variable Importance",
+       x = "Variable",
+       y = "Importance") +
+  scale_x_discrete(labels = def_rf_labels) +
+  theme_minimal() +
+   theme(
+    plot.title = element_text(hjust = 0.5),       
+    panel.grid.major.y = element_blank(),          
+    panel.grid.minor.x = element_blank(), 
+    axis.title.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+        axis.text.y = element_text(size = 10, face = "bold"))
+```
+
+
+```{r}
+def_rf_RMSE <- sqrt(mean(def_transfer.test$`Market value` - predict(def_rf_fit, def_transfer.test))^2)
+def_rf_RMSE
+```
+
+```{r}
+def_transfer_mean <- mean(def_transfer$`Market value`)
+def_transfer_mean
+```
+
+```{r}
+def_relative_error <- (def_rf_RMSE/def_transfer_mean) * 100
+def_relative_error
+```
+
+# Data prep for predictions and residuals
+```{r}
+def_predictions <- ff_data %>%
+  select(-c(Player.y, Nation, Squad, Born)) %>%
+  mutate(`Market value` = as.numeric(trimws(`Market value`))) %>%
+  filter(Pos == "DF")
+```
+
+```{r}
+def_predictions$predictions <- predict(def_rf_fit, def_transfer)
+```
+
+```{r}
+def_predictions$residuals <- df_predictions$`Market value` - df_predictions$predictions
+
+def_predictions$Highlight <- ifelse(def_predictions$Player.x %in% c("Reece James", "Tim Ream"), "Highlighted", "Normal")
+```
+
+```{r}
+def_obs_pred <- ggplot(def_predictions, aes(x = predictions, y = `Market value`, text = Player.x)) +
+  geom_point(data = subset(def_predictions, Highlight == "Normal"), alpha = 0.8, color = "#56B4E9") +
+  geom_point(data = subset(def_predictions, Highlight == "Highlighted"), alpha = 0.5, color = "red", size = 2) +
+  geom_abline(intercept = 0, slope = 1, color = "blue") +
+  labs(title = "Defender Observed vs. Predicted Market Values",
+       x = "Predicted (€)",
+       y = "Observed (€)") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+def_obs_pred_plotly <- ggplotly(def_obs_pred, tooltip = "text")
+
+def_transfer_annotations <- list(
+  list(
+    x = def_predictions$predictions[def_predictions$Player.x == "Reece James"],
+    y = def_predictions$`Market value`[def_predictions$Player.x == "Reece James"],
+    text = paste("Reece James<br>",
+                 "€", round(def_predictions$residuals[def_predictions$Player.x == "Reece James"])),
+    showarrow = TRUE,
+    arrowhead = 7,
+    ax = 20,
+    ay = -20
+  ),
+  list(
+    x = def_predictions$predictions[def_predictions$Player.x == "Tim Ream"],
+    y = def_predictions$`Market value`[def_predictions$Player.x == "Tim Ream"],
+    text = paste("Tim Ream<br>",
+                 "€", round(def_predictions$residuals[def_predictions$Player.x == "Tim Ream"])),
+    showarrow = TRUE,
+    arrowhead = 7,
+    ax = 20,
+    ay = -20
+  )
+)
+
+def_obs_pred_plotly <- def_obs_pred_plotly %>%
+  layout(annotations = def_transfer_annotations)
+
+
+def_obs_pred_plotly
+```
+
+```{r}
+def_predictions_res <- def_predictions %>%
+  select(Player.x, residuals) %>%
+  arrange(desc(residuals))
+
+head(def_predictions_res, 10)
+
+tail(def_predictions_res, 10) 
+```
+
+```{r}
+def_residuals_plot <- ggplot(def_predictions, aes(x = predictions, y = residuals)) +
+  geom_point(alpha = 0.5, color = '#56B4E9') +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Residuals Plot",
+       x = "Predicted Market Value (€)",
+       y = "Residuals (Observed - Predicted)") +
+  theme_minimal()
+
+ggplotly(def_residuals_plot)
+```
+
+
+```{r}
+def_score_transfer <- merge(prem_def_final, def_predictions, by.x = "Player", by.y = "Player.x")
+```
+
+
+```{r}
+def_score_market <- ggplot(def_score_transfer, aes(x = Overall_Score, y = `Market value`)) +
+  geom_point(alpha = 0.8, color = "#56B4E9") +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(title = "DEF Overall Scores vs. Market Values",
+       x = "Overall Score",
+       y = "Market Value (€)") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),   
+    panel.grid.minor = element_blank()         
+  )
+
+ggplotly(def_score_market)
+```
+
+
+# MIDFIELDERS
+```{r}
+
+set.seed(123456)
+mid_index <- createDataPartition(mid_transfer$`Market value`, 
+                             p=0.7,
+                             list=FALSE, 
+                             times = 1)
+mid_transfer.train <- mid_transfer[mid_index,]
+mid_transfer.test <- mid_transfer[-mid_index,]
+```
+
+```{r}
+mid_rf_fit <- train(`Market value` ~ .,
+                               data = mid_transfer.train,
+                               method = 'rf',
+                               importance = TRUE,
+                               trControl = trainControl(method = 'cv', number = 10))
+```
+
+```{r}
+mid_rf_fit
+```
+
+```{r}
+varImp(mid_rf_fit)
+mid_var_importance <- varImp(mid_rf_fit, scale = FALSE)
+
+mid_var_importance_df <- data.frame(Variable = rownames(mid_var_importance$importance), Importance = mid_var_importance$importance[,1])
+
+mid_var_importance_df <- mid_var_importance_df %>%
+  arrange(desc(Importance))
+
+mid_top_5_importance <- head(mid_var_importance_df, 5)
+
+mid_rf_labels <- c("CarryTotDist" = "Total Carrying\n Distance", "Thruballs" = "Through Balls", "ShortPassCmp" = "Short Pass\n Complete", "PassCmp.x" = "Passes Complete")
+
+ggplot(mid_top_5_importance, aes(x = reorder(Variable, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "#009e73") +
+  coord_flip() +
+  labs(title = "MID Variable Importance",
+       x = "Variable",
+       y = "Importance") +
+  scale_x_discrete(labels = mid_rf_labels) +
+  theme_minimal() +
+   theme(
+    plot.title = element_text(hjust = 0.5),       
+    panel.grid.major.y = element_blank(),          
+    panel.grid.minor.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+```{r}
+mid_rf_RMSE <- sqrt(mean(mid_transfer.test$`Market value` - predict(mid_rf_fit, mid_transfer.test))^2)
+mid_rf_RMSE
+```
+
+```{r}
+mid_transfer_mean <- mean(mid_transfer$`Market value`)
+mid_transfer_mean
+```
+
+```{r}
+mid_relative_error <- (mid_rf_RMSE/mid_transfer_mean) * 100
+mid_relative_error
+```
+
+# Data prep for predictions and residuals
+```{r}
+mid_predictions <- ff_data %>%
+  select(-c(Player.y, Nation, Squad, Born)) %>%
+  mutate(`Market value` = as.numeric(trimws(`Market value`))) %>%
+  filter(Pos == "MF")
+```
+
+```{r}
+mid_predictions$predictions <- predict(mid_rf_fit, mid_transfer)
+```
+
+```{r}
+mid_predictions$residuals <- mid_predictions$`Market value` - mid_predictions$predictions
+
+mid_predictions$Highlight <- ifelse(mid_predictions$Player.x %in% c("Declan Rice", "Pascal Groß"), "Highlighted", "Normal")
+```
+
+```{r}
+mid_obs_pred <- ggplot(mid_predictions, aes(x = predictions, y = `Market value`, text = Player.x)) +
+  geom_point(data = subset(mid_predictions, Highlight == "Normal"), alpha = 0.8, color = "#009E73") +
+  geom_point(data = subset(mid_predictions, Highlight == "Highlighted"), alpha = 0.5, color = "red", size = 2) +
+  geom_abline(intercept = 0, slope = 1, color = "blue") +
+  labs(title = "Midfielder Observed vs. Predicted Market Values",
+       x = "Predicted (€)",
+       y = "Observed (€)") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+mid_obs_pred_plotly <- ggplotly(mid_obs_pred, tooltip = "text")
+
+mid_transfer_annotations <- list(
+  list(
+    x = mid_predictions$predictions[mid_predictions$Player.x == "Declan Rice"],
+    y = mid_predictions$`Market value`[mid_predictions$Player.x == "Declan Rice"],
+    text = paste("Declan Rice<br>",
+                 "€", round(mid_predictions$residuals[mid_predictions$Player.x == "Declan Rice"])),
+    showarrow = TRUE,
+    arrowhead = 7,
+    ax = 20,
+    ay = -20
+  ),
+  list(
+    x = mid_predictions$predictions[mid_predictions$Player.x == "Pascal Groß"],
+    y = mid_predictions$`Market value`[mid_predictions$Player.x == "Pascal Groß"],
+    text = paste("Pascal Groß<br>",
+                 "€", round(mid_predictions$residuals[mid_predictions$Player.x == "Pascal Groß"])),
+    showarrow = TRUE,
+    arrowhead = 7,
+    ax = 20,
+    ay = -20
+  )
+)
+
+mid_obs_pred_plotly <- mid_obs_pred_plotly %>%
+  layout(annotations = mid_transfer_annotations)
+
+
+mid_obs_pred_plotly
+```
+
+```{r}
+mid_predictions_res <- mid_predictions %>%
+  select(Player.x, residuals) %>%
+  arrange(desc(residuals))
+
+head(mid_predictions_res, 10)
+
+tail(mid_predictions_res, 10) 
+```
+
+```{r}
+mid_residuals_plot <- ggplot(mid_predictions, aes(x = predictions, y = residuals)) +
+  geom_point(alpha = 0.5, color = '#009E73') +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Residuals Plot",
+       x = "Predicted Market Value (€)",
+       y = "Residuals (Observed - Predicted)") +
+  theme_minimal()
+
+ggplotly(mid_residuals_plot)
+```
+
+
+```{r}
+mid_score_transfer <- merge(prem_mid_final, mid_predictions, by.x = "Player", by.y = "Player.x")
+```
+
+
+```{r}
+
+mid_score_market <- ggplot(mid_score_transfer, aes(x = Overall_Score, y = `Market value`)) +
+  geom_point(alpha = 0.8, color = "#009E73") +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(title = "MID Overall Scores vs. Market Values",
+       x = "Overall Score",
+       y = "Market Value (€)") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),   
+    panel.grid.minor = element_blank()         
+  )
+
+ggplotly(mid_score_market)
+```  
+
+
+
+# FORWARDS
+```{r}
+fwd_index <- createDataPartition(fwd_transfer$`Market value`, 
+                             p=0.7,
+                             list=FALSE, 
+                             times = 1)
+fwd_transfer.train <- fwd_transfer[fwd_index,]
+fwd_transfer.test <- fwd_transfer[-fwd_index,]
+```
+
+```{r}
+fwd_rf_fit <- train(`Market value` ~ .,
+                               data = fwd_transfer.train,
+                               method = 'rf',
+                               importance = TRUE,
+                               trControl = trainControl(method = 'cv', number = 10))
+```
+
+```{r}
+fwd_rf_fit
+```
+
+```{r}
+varImp(fwd_rf_fit)
+fwd_var_importance <- varImp(fwd_rf_fit, scale = FALSE)
+
+fwd_var_importance_df <- data.frame(Variable = rownames(fwd_var_importance$importance), Importance = fwd_var_importance$importance[,1])
+
+fwd_var_importance_df <- fwd_var_importance_df %>%
+  arrange(desc(Importance))
+
+fwd_top_5_importance <- head(fwd_var_importance_df, 5)
+
+fwd_rf_labels <- c("Gls" = "Goals", "npxG" = "Non Penalty\n Expected Goals", "`Touches AttPA`" = "Touches Attacking\n Penalty Area", "`Touches Att3`" = "Touches Attacking\n Third", "Sh" = "Shots")
+
+ggplot(fwd_top_5_importance, aes(x = reorder(Variable, Importance), y = Importance)) +
+  geom_bar(stat = "identity", fill = "#CC79A7") +
+  coord_flip() +
+  labs(title = "FWD Variable Importance",
+       x = "Variable",
+       y = "Importance") +
+  scale_x_discrete(labels = fwd_rf_labels) +
+  theme_minimal() +
+   theme(
+    plot.title = element_text(hjust = 0.5),       
+    panel.grid.major.y = element_blank(),          
+    panel.grid.minor.x = element_blank(), 
+    axis.title.y = element_blank(),
+    panel.grid.minor.y = element_blank(),
+        axis.text.y = element_text(size = 10, face = "bold"))
+
+```
+
+
+```{r}
+fwd_rf_RMSE <- sqrt(mean(fwd_transfer.test$`Market value` - predict(fwd_rf_fit, fwd_transfer.test))^2)
+fwd_rf_RMSE
+```
+
+```{r}
+fwd_transfer_mean <- mean(fwd_transfer$`Market value`)
+fwd_transfer_mean
+```
+
+```{r}
+fwd_relative_error <- (fwd_rf_RMSE/fwd_transfer_mean) * 100
+fwd_relative_error
+```
+
+# Data prep for predictions and residuals
+```{r}
+fwd_predictions <- ff_data %>%
+  select(-c(Player.y, Nation, Squad, Born)) %>%
+  mutate(`Market value` = as.numeric(trimws(`Market value`))) %>%
+  filter(Pos == "FW")
+```
+
+```{r}
+fwd_predictions$predictions <- predict(fwd_rf_fit, fwd_transfer)
+```
+
+```{r}
+fwd_predictions$residuals <- fwd_predictions$`Market value` - fwd_predictions$predictions
+
+fwd_predictions$Highlight <- ifelse(fwd_predictions$Player.x %in% c("Phil Foden", "Danny Welbeck"), "Highlighted", "Normal")
+```
+
+```{r}
+fwd_obs_pred <- ggplot(fwd_predictions, aes(x = predictions, y = `Market value`, text = Player.x)) +
+  geom_point(data = subset(fwd_predictions, Highlight == "Normal"), alpha = 0.8, color = "#CC79A7") +
+  geom_point(data = subset(fwd_predictions, Highlight == "Highlighted"), alpha = 0.8, color = "red", size = 2) +
+  geom_abline(intercept = 0, slope = 1, color = "blue") +
+  labs(title = "Forward Observed vs. Predicted Market Values",
+       x = "Predicted (€)",
+       y = "Observed (€)") +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+fwd_obs_pred_plotly <- ggplotly(fwd_obs_pred, tooltip = "text")
+
+fwd_transfer_annotations <- list(
+  list(
+    x = fwd_predictions$predictions[fwd_predictions$Player.x == "Phil Foden"],
+    y = fwd_predictions$`Market value`[fwd_predictions$Player.x == "Phil Foden"],
+    text = paste("Phil Foden<br>",
+                 "€", round(fwd_predictions$residuals[fwd_predictions$Player.x == "Phil Foden"])),
+    showarrow = TRUE,
+    arrowhead = 7,
+    ax = 20,
+    ay = -20
+  ),
+  list(
+    x = fwd_predictions$predictions[fwd_predictions$Player.x == "Danny Welbeck"],
+    y = fwd_predictions$`Market value`[fwd_predictions$Player.x == "Danny Welbeck"],
+    text = paste("Danny Welbeck<br>",
+                 "€", round(fwd_predictions$residuals[fwd_predictions$Player.x == "Danny Welbeck"])),
+    showarrow = TRUE,
+    arrowhead = 7,
+    ax = 20,
+    ay = -20
+  )
+)
+
+fwd_obs_pred_plotly <- fwd_obs_pred_plotly %>%
+  layout(annotations = fwd_transfer_annotations)
+
+
+fwd_obs_pred_plotly
+```
+
+```{r}
+fwd_predictions_res <- fwd_predictions %>%
+  select(Player.x, residuals) %>%
+  arrange(desc(residuals))
+
+head(fwd_predictions_res, 10)
+
+tail(fwd_predictions_res, 10) 
+```
+
+```{r}
+fwd_residuals_plot <- ggplot(fwd_predictions, aes(x = predictions, y = residuals)) +
+  geom_point(alpha = 0.5, color = '#CC79A7') +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Residuals Plot",
+       x = "Predicted Market Value (€)",
+       y = "Residuals (Observed - Predicted)") +
+  theme_minimal()
+
+ggplotly(fwd_residuals_plot)
+```
+
+
+```{r}
+fwd_score_transfer <- merge(prem_fwd_final, fwd_predictions, by.x = "Player", by.y = "Player.x")
+
+fwd_score_transfer <- fwd_score_transfer %>%
+  select(Player, Overall_Score, `Market value`)
+```
+
+
+```{r}
+fwd_score_market <- ggplot(fwd_score_transfer, aes(x = Overall_Score, y = `Market value`)) +
+  geom_point(alpha = 0.8, color = "#CC79A7") +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(title = "FWD Overall Scores vs. Market Values",
+       x = "Overall Score",
+       y = "Market Value (€)") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),   
+    panel.grid.minor = element_blank()         
+  )
+
+ggplotly(fwd_score_market)
+```     
+
+
+
