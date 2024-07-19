@@ -1,0 +1,350 @@
+---
+title: "Deconstructing Player Performance: A PCA and Random Forest based approach"
+authors:
+  - name: "Keelan Eyers"
+    department: "School of Mathematical and Statistical Sciences"
+    affiliation: "University of Galway"
+    location: "Galway, H91 TK33, Ireland"
+    email: "k.eyers1@universityofgalway.ie"
+abstract: "Player performance evaluation in professional football is essential for informed decision-making by coaches, scouts, and analysts. Traditional methods often rely on subjective assessments, leading to inconsistent and biased evaluations. This study aims to provide a more objective evaluation by utilizing Principal Component Analysis (PCA) and Random Forest regression. The PCA approach reduces dimensionality and creates composite performance scores from a comprehensive set of metrics, offering a holistic view of player performance. Random Forest regression identifies key performance metrics influencing player market value, providing insights into which attributes are most valued in the market.The dataset, sourced from FB REF and Transfermarkt, includes performance metrics for 569 players from the 2022/2023 Premier League season. Results show that different metrics drive performance and market value for defenders, midfielders, and forward. The analysis highlights the complexity of market valuation and identifies over- and undervalued players. This study contributes to football analytics by presenting a robust methodology for objective player evaluation and market value prediction, offering valuable insights for talent acquisition and player development. Future research should incorporate broader datasets and additional factors to enhance model performance and predictive power
+Availbility: Code available at: https://github.com/eyersk98/HDS
+Contact: k.eyers1@universityofgalway.ie"
+bibliography: "references.bib"
+biblio-style: "unsrt"
+output: 
+  rticles::arxiv_article:
+    extra_dependencies: ["float", "subfig", "graphicx"]
+---
+
+# Introduction
+
+Player performance evaluation in professional football is a critical aspect that significantly influences decisions made by coaches, scouts, analysts, and even fans. Traditional methods of evaluating player performance are often prone to bias and subjectivity, relying heavily on personal opinions and qualitative assessments.  (McIntosh et al.,  2019) (Salabun et al., 2020)(Oliveira and Newell 2024) This inherent subjectivity can lead to inconsistent and potentially unfair evaluations, which ultimately affect player market values, team selections, and career advancements. As the sport evolves and becomes increasingly data-driven, the need for more objective, reliable methods to evaluate player performance becomes imperative. (McHale et at., 2012) \newline
+One of the primary issues with subjective performance evaluation is the variability and bias it introduces. Different scouts, coaches, and analysts may have varying opinions on what constitutes good performance. These differences can be due to personal preferences, biases, or a lack of comprehensive understanding of all aspects of the game. For instance, one scout might prioritize a midfield player's goal-scoring ability, while another might value defensive contributions more highly. This inconsistency can result in players being undervalued or overvalued, affecting their career opportunities and market values. (Dutch et al., 2010)(McCormack et al., 2021) \newline
+Football is a complex sport where various skills and attributes contribute to overall performance. These include not only goal-scoring and defensive actions but also passing accuracy, dribbling, positioning, and many other metrics. Traditional methods that focus on isolated performance indicators do not provide a holistic view of a player's contributions on the field. Consequently, there is a pressing need for an evaluation system that can integrate multiple performance metrics into a single, objective score that reflects a player's overall performance. (Merzah et al., 2024 )(Mann et al., 2022)
+
+This research aims to address these shortcomings by employing advanced statistical techniques, specifically Principal Component Analysis (PCA) and Random Forest regression, to objectively measure player performance and determine the factors influencing a player's market value. By reducing dimensionality through PCA, we can distill a large set of performance metrics into principal components that retain the most critical information about player performance. An approach inspired by (Oliveira and Newell 2024)  allows us to create composite scores that reflect a player's overall performance more accurately. Furthermore, using Random Forest regression, we can identify the specific performance metrics that most significantly impact a player's market value, providing insights into how different aspects of performance are valued in the market. (Yi et al., 2020) (Ramnath and Priya 2024 )
+
+The need for an objective player performance evaluation system is paramount in modern football for several reasons. Firstly, subjective assessments often lead to inconsistent evaluations, as different scouts, coaches, and analysts may have varying opinions on what constitutes good performance. This inconsistency can result in players being undervalued or overvalued, affecting their career opportunities and market values. Secondly, a data-driven approach can help in identifying undervalued talent, providing teams with a competitive edge in player acquisitions and squad development. (McIntosh et al., 2019 )(Salabun et al., 2020 ) (Oliveira and Newell 2024) \newline
+Moreover, an objective evaluation system benefits not only the teams but also the players themselves. By providing a transparent and unbiased measure of performance, players can better understand their strengths and areas for improvement. This feedback can be crucial for their development and progression in the sport. Additionally, such a system can enhance the overall quality of the game by ensuring that players are evaluated and rewarded based on their actual performance rather than subjective opinions. (Merzah et al ., 2024) (Mann et al., 2022)
+
+## Aims
+This study fills a significant gap in the existing literature and practice of player performance evaluation by introducing a holistic, data-driven methodology. The primary contributions of this research are twofold:\newline
+1.	Objective Measurement of Player Performance: By applying PCA to a comprehensive set of performance metrics, this study creates a composite performance score for each player. This score provides a holistic measure of performance, integrating various aspects of the game such as shooting, passing, defense, and possession into a single metric. This approach not only reduces the dimensionality of the data but also ensures that the most important performance characteristics are retained.\newline
+2.	Identification of Key Performance Metrics Influencing Market Value: Using Random Forest regression, this study identifies which performance metrics are most predictive of a player's market value. By doing so, it highlights the attributes that scouts and teams consider most valuable in players. This insight can inform player development programs, scouting strategies, and market negotiations.
+
+## PCA
+PCA is a statistical technique used to simplify a complex dataset by transforming it into a set of uncorrelated variables called principal components. These components are linear combinations of the original variables and are ordered such that the first few retain most of the variation present in the original dataset. In this study, PCA is used to reduce the dimensionality of the performance metrics while preserving the most significant information. The principal components derived from PCA serve as the basis for creating composite performance scores for players. (Maćkiewicz & Ratajczak, 1993) \newline
+PCA helps in identifying the key factors that contribute to the overall variance in the dataset, thereby reducing the complexity of the data while retaining the most important information. This technique is particularly useful in handling large datasets with many correlated variables, as it transforms the data into a smaller set of uncorrelated components. By focusing on these principal components, we can gain insights into the underlying structure of the data and identify the main drivers of player performance. (Pino-Ortega et al., 2021) (Rodionova et al., 2021) (Oliveira and Newell 2024)
+
+## Composites
+Composite scores are created by combining multiple performance metrics into a single score that represents a player's overall performance. In this study, the composite scores are calculated using the principal components obtained from PCA. The use of composite scores allows for a more comprehensive evaluation of player performance, as it integrates various aspects of the game into a single metric. (UmaMaheswari & Rajaram, 2009) \newline
+The composite score provides a holistic measure of performance, taking into account various dimensions of the game. This approach ensures that players are evaluated based on their overall contributions rather than isolated metrics. By aggregating multiple performance indicators into a single score, we can provide a more accurate and balanced assessment of a player's abilities. This composite score can then be used to compare players objectively, identify top performers, and inform decision-making processes. (Song et al., 2013) (Oliveira and Newell 2024).
+
+## Random Forest
+Random Forest regression is an ensemble learning method that constructs multiple decision trees during training and outputs the mean prediction value for regression. It is particularly useful for handling large datasets with complex interactions among variables. In this study, Random Forest regression is employed to predict player market values based on their performance metrics. The model identifies the most important variables influencing market value, providing insights into which aspects of performance are most highly valued in the market. (Breiman, 2001) (Groll et al., 2018) \newline
+Random Forest regression is advantageous because it can handle both linear and non-linear relationships between variables. It also provides measures of variable importance, which indicate how each predictor contributes to the model's predictions. This feature is particularly valuable in our study, as it allows us to identify the key performance metrics that drive player market values. By understanding these relationships, we can provide actionable insights to teams and scouts about the factors that influence player valuation.(Pantzalis & Tjortjis, 2020) (Morciano et al., 2022). \newline
+Player market value is influenced by a variety of factors, including age, performance metrics, position, and market dynamics. Performance metrics such as goals scored, assists, defensive actions, and passing accuracy are key indicators of a player's value. However, other factors such as a player's age, injury history, and market demand also play a significant role. This study focuses on the performance metrics that can be quantified and analyzed to predict market value, providing a data-driven approach to understanding how different aspects of performance are valued. (Patnaik et al., 2019) \newline
+Market value is a complex construct that reflects a player's perceived contribution to a team's success. It is influenced by both objective performance metrics and subjective factors such as reputation, popularity, and marketability. By focusing on quantifiable performance metrics, our study aims to provide a more objective and transparent basis for player valuation. This approach can help mitigate the influence of biases and provide a clearer understanding of how performance translates into market value. (Jishnu et al., 2022) (Frick, 2007)
+
+
+# Methods
+
+```{r, fig2, echo=FALSE, fig.cap = 'Flow Chart of the project workflow, the process of the two analysis and the comparisons made', out.width= "40%", fig.align= "center", fig.pos="H"}
+
+knitr::include_graphics("flowchart.png")
+
+```
+
+## Data acquisition
+
+The dataset used in this analysis was obtained from the FB REF database (https://fbref.com/en/), a publicly accessible source of Football data.  The data obtained were in separate groups characterised as shooting, passing, pass types, goal and shot creation, defensive actions, possession and miscellaneous player performance metrics. The database that resulted from this compilation is available at (https://github.com/eyersk98/HDS) \newline
+This database contains 569 players from the 2022/2023 premier league season and 126 player performance metrics, 24 shooting, 30 passing, 22 pass types, 23 goal and shot creation, 23 defensive actions, 29 possession and 23 miscellaneous metrics. Duplicate variables such as crosses, interceptions and passes attempted were removed after merging. Minimal filtering was applied to remove players with low matches played (90s < 3) and the remainder were used as input for analysis. Players were assigned to their primary positions by selecting the first listed position in the cases where multiple positions were listed. Goalkeepers, 39 in total, were removed from the dataset and then players were  separated into 3 distinct position groups,: 165 Defenders,  133 Midfielders and 121 Forwards. \newline
+Within each position group variables with NA values were excluded, this is due to missing value imputation or similar methods not being appropriate as variables with NA values typically included ones such as “shots on target %” or “one vs one %”, wherein the percentage value could not be calculated as the parent value was zero.. Also variables with zero variance such as penalty attempts for defenders were excluded as they did not provide relevant information.
+
+## EDA
+
+Exploratory data analysis was conducted to understand the structure and characteristics of the datasets. The sample mean, standard deviation and coefficient of variation for the response variables for each position group were calculated. R package pheatmap was used to construct sample heatmaps showing the Pearson correlation coefficient between each pair of variables together with hierarchical clustering. (Sedgwick, 2012) Using exploratory data analysis to understand my data gave a sense of how variables relate to each other, if they are negatively or positively correlated, helped guide me to understand player component scores and if reversing of components is needed these variables appear in. (Casal et al., 2021) (Sedgwick, 2012). All EDA visualisations used during this project are available in the supplementary section.
+
+## Scaling
+
+Non-continuous variables such as player team, name, and squad leaving us with only continuous response variables, some of which may be correlated. The sample means and standard deviations of each variable were calculated to standardise each variable using the relevant sample standard deviation and mean. Next we multiply each variable value by its respective coefficient of variation (CV), a measure of the dispersion of a probability distribution, as performed by (Oliveira and Newell 2024). Is defined as a ratio of the standard deviation to the mean.(Reed et al., 2002) This scaling by CV ensures that the variability of each response variable is suitably accounted for. Defining:
+
+$$
+z^*_i = z_i\frac{s_i}{\bar{r_i}} = \frac{r_i - \bar{r_i}}{s_i} \cdot \frac{s_i}{\bar{r_i}} = \frac{r_i - \bar{r_i}}{\bar{r_i}}, \quad |\bar{r_i}| > 0.
+$$
+
+## PCA
+
+PCA was performed on the pre-processed data to reduce dimensional while retaining the most important variance in the dataset.The PCA process involved eigenvalue decomposition, extraction of component loading values and player principal component scores. Principal components are linear combinations of a set of uncorrelated variables, represented by $y$, derived from $z$ variables. This can be expressed as:
+
+$$
+y_c = \alpha_{c1} z_1^* + \alpha_{c2} z_2^* + \ldots + \alpha_{cn} z_n^*, \quad c = 1, 2, \ldots, n.
+$$
+The $c$-th prinicpal component is the linear combination $y_c = \alpha_c^{\top} {z}^*$ that has the largest samle variance. ${A}$  denotes the vectors that define the $n$  principal components. ${A} = [\alpha_1, \alpha_2, \ldots, \alpha_n]$ and $\lambda^{\top} = [\lambda_1, \lambda_2, \ldots, \lambda_n]$  a vector of length $n$ containing their corresponding eigenvalues.
+On the basis of visual examination of scree plots, a five component interpretation was deemed appropriate for defenders which accounted for 75% of the total variation in the data, two component interpretation for midfielders (89%)  and one component interpretation for forwards (95%).
+Visual plots of the components, the percentage of variation account for by the component and only the predominant loadings (i.e. top five highest absolute loading values) were extracted.(Oliveira and Newell 2024)(Maćkiewicz & Ratajczak, 1993)(Newell et al., 2006)
+
+### Composite score
+Following on from the methods used by (Oliveria and Newell 2024), as a result of the weighted scaling method, it allows us to use all the components derived from PCA. Using ${A}$ and $\lambda$ a weighted matrix ${W}$ can be calculated and defined as :
+
+$$
+W = \left( 1_n^{\top} \otimes \lambda \right) \odot A^{\top} S^{-1}, \mathrm{with} \, S = \sum_{c=1}^{n} \lambda_c
+$$
+As a result principal components with high variances contribute more to the weighted mean than those with low variances.(Oliveira and Newell 2024)The overall score vector as a result of encompassing all scores for players can be expressed as:
+
+$$
+\gamma = \left( W^{\top} 1_n \right) Z^{*\top}
+$$
+
+### Min-max scaling
+
+Min-max scaling transformation is a technique used to normalise data and make it more interpretable. (Patro & sahu, 2015) Data is rescaled usually between fixed values of 0 and 1 preserving original relationships between data points. Min-max scaling was applied to the players overall composite scores to make them more interpretable and more comparable. (Oliveira and Newell 2024) In this study we set the fixed values between 0 and 100 so rescaled scores will range between 0 and 100. With higher values indicating better performance. The min-max scale formula can be defined as:
+
+$$
+\gamma = a + \frac{\left( \gamma - \min \left( \gamma \right) \right) (b - a)}{\max \left( \gamma \right) - \min \left( \gamma \right)}
+$$
+
+## Transfer Values
+
+Player market values were scraped from the Transfermarkt website (https://www.transfermarkt.com/) using Python’s Beautifulsoup and HTML parsing libraries.(Lotfi et al., 2021) Scraped data was merged with the raw player performance metrics database using R package fuzzyjoin to account for slight discrepancies in player names between the two datasets.
+
+## Random forest
+
+The datasets were split into training and testing sets to evaluate the performance of the Random Forest model. Specifically, 70% of the data was allocated to training set and the remaining 30% was reserved for testing. Partitioning was done using the R package caret to create an unbiased split of the data. \newline
+A random forest model was employed to predict player market values based on their performance metrics. Random forest algorithm is an ensemble learning method that constructs multiple decision trees during training and outputs the mean prediction value for regression of the individual trees. Training of the model was performed using 10-fold cross-validation to prevent overfitting. This cross-validation process involves dividing the training set into 10 subsets, training the model on nine of the folds and validating it on the remaining fold. This processes is repeated 10 times, with each fold used once for validation. \newline
+After model training, variable importance was assessed to identify which performance metrics had the most significant impact on predicting player market values. Variable importance is typically measured by the mean decrease in impurity (residual sum of squares for regression), this measures the change in the model’s performance when the values of a give variable are permuted. Variable importance was extracted using the caret package in R. This allows us to see a ranked list of variables based on their importance score.\newline
+Performance of the random forest model was evaluated using several key metrics and visualizations. The RMSE. R-squared value and the relative error rate of the models were calculated. Predicted vs observed and residuals plot were created to help identify any systematic errors or bias.  Predictions on the full dataset were done to obtain residuals for each data point, this helped identify over or under valued players according to the model.
+(Breiman 2001)(Biau 2012)
+
+## Overall Score and Market Value
+
+To explore the relationship between the composite performance score derived from PCA and the player market values we integrated the two datasets. Composite scores, representing the holistic performance value for each player, was merged with their respective market values. We utilised Pearson’s correlation coefficient, a measure of linear correlation between two variables to quantify this relationship, where $r=1$ indicates a perfect positive linear relationship, $r=-1$ indicates a perfect negative linear relationship and $r=0$ indicates no linear relationship. Visual inspection was also carried out where scatter plots of composite score vs market value fitted with a linear regression line to visualise the trend and direction of the relationship.
+
+# Results
+## PCA
+
+```{r, echo=FALSE, fig.cap="Scree plots, showing the variance explained (eigenvalues) of the first 10 principal components for each position group", fig.subcap=c('Defenders', 'Midfielders', 'Forwards'), fig.ncol=3, out.width='33%', fig.align='center', fig.pos= "H"}
+
+knitr::include_graphics(c("scree_def.png", "scree_mid.png", "scree_fwd.png"))
+
+```
+
+Eigenvalues of the principal components from PCA values were extracted to generate scree plots illustrating the variance explained by each principal component. While all components are incorporated into a player's composite score, the variance explained helps us decide which components we should interpret for understanding the main driving force of a player's overall score. As seen in Figure 2a, the first prinicpal component for defenders accounts for approximately 41% of the total variance, and the first five component together explain about 75% of the variance, so were chosen for interpretation. For midfielders the first principal component alone explains around 86% of the variance, the second component adds another 4%, these two components were chosen for interpretation accounting for around 90% of the variation seen in Figure 2b. In Figure 2c, the first principal component for forwards explains about 95% of the variance, meaning we can just interpret this component to understand most of the data.
+
+```{r, echo=FALSE, fig.cap="Principal component loadings, depicting the loading values variables of the 5 highest abolsulte values for each position group", fig.subcap=c('Defenders', 'Midfielders', 'Forwards'), fig.ncol=3, out.width='33%', fig.align='center', fig.pos= "H"}
+
+knitr::include_graphics(c("def_comp.png", "mid_comp.png", "fwd_comp.png"))
+
+```
+
+Interpretting the components is crucial to understanding what the main drivers are of a players overall score. The component loadings provide insights into which performance metrics contribute most to the interpretted components. In Figure 3a we see defenders principal componet 1 is dominated by variables related to set-piece situations with straight, inswinging and outswinging corner kicks present along with free-kick shots and so we will call this component set pieces. Component 2 highlights both defensive actions and drawing fouls leading to goals along with disciplinary action seen with red card and 2 yellow cards, so we will call this component actions leading to goals and aggresive defending. Prinicpal component 3 similarly focuses on disciplinary action accompanied with penalty area dribbles and dribbling actions that lead to goals , we will label this component as aggresive defending and dribbling threat. Component 4 focuses on aggresive defending and defensive and dribbling actions leading to goals so as such we will call this aggresive defending and actions leading to goals. Finally prinicpal component 5 for defenders we can see fouls drawn that lead to penalties or goals and set pieces so this will be characterised as drawing fouls for goals and set piece taking. In Figure 3b we can see midfielders principal components loadings. The first component is strong influenced by offensive metrics goals minus expected goals and non penalty goals minus expected goal, which essential represents if players are scoring more or less then they are expected so we will call this component taking their chances. The second component includes penalty goals, penalty attempts and other set piece actions leading to goals so this can be called penalties and set pieces. Figure 3c shows the loadings for forwards component 1 with goals minus expected goals and non penalty goals minus goals seen here similarly to midfielders, this component can be classed as forwards taking their chances. These loadings help us understand the factors driving the composite player performance scores.
+
+## Player Performance
+
+The top-ranked players for defenders, midfielders and forwards based on their overall composite scores can be seen in Figures 4, 5  and 6, showing their scores for the interpreted components, their overall composite score and their min-max scaled overall composite score.
+
+```{r, echo=FALSE, out.width='90%', fig.align='center', fig.cap="Top 10 Defenders based on overall composite score and key component scores for each player contributing to overall score", fig.pos = "H"}
+
+knitr::include_graphics("def_table_top10.png")
+
+```
+
+In Table 4 we can see Kieran Trippier ranks highest, driven by his high score in set-pieces, while players like Ivan perisic and Pervis Estupinan show more balance through their scores from defensive and offensive contributions.
+
+```{r, echo=FALSE, out.width='70%', fig.align='center', fig.cap="Top 10 Midfielders based on overall composite score and key component scores for each player contributing to overall score", fig.pos = "H"}
+
+knitr::include_graphics("mid_table_top10.png")
+
+```
+
+In Table 5, James Ward_prowse leads due to his strong contributions in taking his chances and set piece scores, while players like Jefferson Lerma rely purely on their high score in taking their chances to overcome their poor set piece score to have them high up the rankings.
+
+```{r, echo=FALSE, out.width='70%', fig.align='center', fig.cap="Top 10 Forwards based on overall composite score and key component scores for each player contributing to overall score", fig.pos = "H"}
+
+knitr::include_graphics("fwd_table_top10.png")
+
+```
+
+In Table 6, we see players like Harry Kane and Erling Haaland top the ranks as they are taking their chances and scoring more then they are expected.
+
+## Random Forest
+
+```{r, echo=FALSE, fig.cap="Variable Importance extracted from random forest models depicting variables that result in the most loss of model performance when removed, determined by mean gini index", fig.subcap=c('Defenders', 'Midfielders', 'Forwards'), fig.ncol=3, out.width='33%', fig.align='center', fig.pos= "H"}
+
+knitr::include_graphics(c("def_varimp.png", "mid_varimp.png", "fwd_varimp.png"))
+
+```
+
+Variable importance was extracted from the random forest model for each position. Figures 7a, 7b and 7c highlight the most critical predictors of player market value, based on the random forest model's mean decrease in impurity (Gini index). \newline
+For defenders in Figure 7a we can see age, progressive and total carrying distance, dribbles and short passes complete are deemed most important. This hihglights that a defenders age and their ball playing ability contribute to their market value. Figure 7b highlights the most important variables for midfielders as we see short pass and passes complete, through balls and totaly carrying distance and carries. This tells us a midfielders passing and dribbling ability influence their market value. Figure 7c shows the most important variables for forwards as we see goals, non penalty expected goals, shots and touches in attacking penalty area and third. This suggests that a forwards market value is determined by their general attacking threat. It is interesting to note that when comparing these important variables to those with high loadings found in the first few important components there is a lack of overlap regarding defenders and midfielders but some similiarities seen with forwards as attacking threat and taking their chances can be comparable.
+
+```{r, echo=FALSE, fig.cap="Observed vs predicted values for each random forest model predictions within each position group", fig.subcap=c('Defenders', 'Midfielders', 'Forwards'), fig.ncol=3, out.width='33%', fig.align='center', fig.pos= "H"}
+
+knitr::include_graphics(c("def_obs.png", "mid_obs.png", "fwd_obs.png"))
+
+```
+
+
+```{r, echo=FALSE, out.width='50%', fig.align='center', fig.cap="Random Forest model performance", fig.pos = "H"}
+
+knitr::include_graphics("performance_table.png")
+
+```
+
+To help visualise model performance we can look at the observed vs predicted market values seen in Figure 8 fitted with a line of equality to assess model accuracy and identify over or undervalued players according to the model. There is a pattern seen across all three groups in that decreased accuracy for high-valued players is seen compared to lower valued ones. \newline
+Looking at Figure 9 we can see the model performance values in terms of RMSE, R-squared and relative error rate. For defenders we can see an R squared value of 0.41, an RMSE of 8,766,833 and relative error rate of 5%. For midfielders we see 0.57 R squared value, 15,952,030 RMSE and a relative error of 65%. For forwards we see an R squared of 0.48, RMSE of 20,671,930 and a relative error rate of 73%. Across all three groups we can see that the random forest model captures some of the variance in player market values, but there is substantial room for improvement. The R squared valued indicate moderate predictive power but the high RMSE and relative error rates indicate significant prediction errors.
+
+
+In Figure 10 we can see player market value residuals which tells us what their predicted minus observed values are to see. We can use this to determine over and under valued players according to the model. Despite the models low to moderate performance we can use these residuals to identify under or over valued players that will help determine factors for why the model may be under performing.
+
+```{r, echo=FALSE, fig.cap="Player Residuals", fig.subcap=c('Over-valued', 'Under-valued'), fig.ncol=3, out.width='50%', fig.align='center', fig.pos= "H"}
+
+knitr::include_graphics(c("top5_residuals_table.png", "bottom5_residuals_table.png"))
+
+```
+
+
+## Score vs market value
+
+score index vs market value
+```{r, echo=FALSE, fig.cap= "Overall score vs Market Value, allowing us to see the relationship between the two values for a player and understand them better.", fig.subcap=c('Defenders', 'Midfielders', 'Forwards'), fig.ncol=3, out.width='33%', fig.align='center', fig.pos= "H"}
+
+knitr::include_graphics(c("def_score_market.png", "mid_score_market.png", "fwd_score_market.png"))
+
+```
+
+The pearson correlation coefficients ($r$) between composite scores and market values for defenders, midfielders and forwards are 0.19, 0.15 and 0.36 respectively and the relationship can be seen in Figure 11. The weak correlation for defenders indicate that factors beyone performance metrics significantly influence market value evaluations. Similarly for midfielders the complexity of market valuation is not decided by performance metrics alone. A moderate correlation seen in forwards suggests that performance metrics are more directly related to market values but other factors still play a key role.
+
+# Discussion
+
+This study aimed to address the inherent subjectivity in traditional player performance evaluations by utilizing Principal Component Analysis (PCA) and Random Forest regression. The objective was to generate a composite performance score for each player and determine which performance metrics most significantly impact player market value. Our findings reveal important insights and further understanding of the complexity of player performance evaluation and determining a player's market valuation.
+
+The PCA allowed us to reduce the dimensionality of the dataset while retaining the most critical information about player performance. By interpreting the principal components, we identified the key performance metrics that drive overall player performance for each position group. The results indicate that different metrics are important for defenders, midfielders, and forwards:\newline
+Defenders: Metrics related to set-pieces, defensive actions, and disciplinary actions were significant. This highlights the importance of both defensive solidity and contribution to set-pieces in evaluating defender performance.\newline
+Midfielders: Offensive metrics, particularly those related to goals and set-pieces, were crucial. This underscores the multifaceted role of midfielders in both attacking and set-piece situations.\newline
+Forwards: Metrics related to goal-scoring efficiency (goals minus expected goals) were predominant, emphasizing the primary role of forwards in converting chances into goals.
+
+The composite scores provide a holistic measure of player performance by integrating multiple performance metrics into a single score. The top-ranked players in each position group were identified based on these composite scores, revealing the key contributors in each category. This approach ensures a more comprehensive and balanced evaluation of player abilities, moving beyond isolated performance indicators. (Oliveira and Newell 2024) (O’Donoghue, 2008)
+
+The Random Forest model identified the most important performance metrics influencing player market value. These metrics varied across positions, reflecting the different skill sets valued for defenders, midfielders, and forwards:\newline
+Defenders: Age, carrying distance, dribbles, and short passes were crucial. This indicates that a defender's ability to progress the ball and age significantly impact their market value.\newline
+Midfielders: Passing and dribbling metrics were key, highlighting the importance of ball distribution and carrying ability in determining a midfielder's value.\newline
+Forwards: Goal-scoring metrics and touches in the attacking areas were most important, emphasizing the critical role of attacking efficiency in forward valuation\newline
+
+The Random Forest model's performance varied across position groups, with moderate predictive power (R-squared values between 0.41 and 0.57). However, the high RMSE and relative error rates indicate substantial prediction errors, particularly for high-value players. The Pearson correlation coefficients between composite scores and market values were weak to moderate (0.15 to 0.36), suggesting that factors beyond performance metrics significantly influence market value evaluations. (Biau, 2012)
+
+## Complexity of Market Valuation
+The weak to moderate correlations between composite scores and market values highlight the complexity of market valuation in football. While performance metrics play a role, other factors such as age, contract length remaining, market dynamics, reputation, and subjective assessments by scouts and analysts also significantly impact market value. This complexity suggests that a purely data-driven approach, while valuable, cannot fully capture the nuances of player valuation. (Singh & Lamba, 2019)(Majewski, 2016)
+
+## Identifying Over- and Undervalued Players
+Despite the model's limitations, the analysis of residuals (predicted minus observed values) allows us to identify over- and undervalued players. These insights can be crucial for teams looking to acquire talent that is undervalued by the market, providing a competitive edge in player acquisitions. Similarly, understanding why certain players are overvalued can help teams avoid costly mistakes. (He et al., 2015) (Biau, 2012) 
+ 
+## Implications for Football Analytics
+This study contributes to football analytics by providing a robust methodology for objectively evaluating player performance and understanding the factors influencing market value. The use of PCA to create composite performance scores and Random Forest regression to identify key performance metrics offers a comprehensive framework for player evaluation. This approach can be adopted by teams, scouts, and analysts to enhance decision-making processes and reduce the subjectivity in player assessments. (Rojas-Valverde et al., 2020) The composite score accompanied with player market value assessment can help teams target key players that objectively performing well according to data driven analysis but have low market values.
+
+
+Similiarities or differences between high loading variablea and variable importancea
+age/contract etc
+differences between processes, variation and what makes a player stand out vs predictive power
+Reasons for poor model performance
+More variation in defenders compared to midfielders and forwards
+
+## Limitations 
+
+The analysis done in this study relies on the quality and completeness of the data from FB REF and Transfermarkt. Missing values and discrepancies between datasets can affect results. The analysis was performed on one league in one season, a more comprehensive approach could include various leagues at low and high levels. This study did not include available factors such as contract length and player injury history, with the aim to be a purely data driven and performance metric evaluation these were left out.
+
+## Potential Improvements
+Future research should focus on improving model performance by incorporating more comprehensive datasets that include subjective factors such as player reputation, marketability and potential along with excluded know factors such as injury histroy and contract length. Additionally, exploring other machine learning techniques and ensemble methods could provide better predictive power and insights into the complex relationships between performance metrics and market value such as boosting or more comprehensive feature engineering. Longitudinal studies that track player performance and market value over multiple seasons could also offer deeper insights into the dynamics of player valuation.
+
+\section*{Ackowledgements}
+
+I would like to acknowledge and thank my supervisor, John Newell for his continued guidance and feedback throughout the project.
+
+\section*{References}
+
+<font size="3">
+
+Aditya Ramnath and R. Priya (2024) ‘Football player analysis for identifying best team using machine learning’, International Journal of Advanced Research in Science, Communication and Technology, pp. 248–254. doi:\href{https://doi.org/10.48175/ijetir-1245}{10.48175/ijetir-1245}.\newline
+Biau, G. (2012) Analysis of a random forests model, arXiv.org. Available at: \href{https://doi.org/10.48550/arXiv.1005.0208}{https://doi.org/10.48550/arXiv.1005.0208} (Accessed: 18 July 2024). \newline
+Breiman, L. (2001) Machine Learning, 45(1), pp. 5–32. doi:\href{https://doi.org/10.1023/a:1010933404324}{10.1023/a:1010933404324}. \newline
+Casal, C.A. et al. (2021) ‘Multivariate exploratory comparative analysis of LaLiga teams: Principal Component Analysis’, International Journal of Environmental Research and Public Health, 18(6), p. 3176. doi:\href{https://doi.org/10.3390/ijerph18063176}{10.3390/ijerph18063176}. \newline
+de Paula Oliveira, T. and Newell, J. (2024) ‘A hierarchical approach for evaluating athlete performance with an application in elite basketball’, Scientific Reports, 14(1). doi:\href{https://doi.org/10.1038/s41598-024-51232-2}{10.1038/s41598-024-51232-2}. \newline
+Duch, J., Waitzman, J.S. and Amaral, L.A. (2010) ‘Quantifying the performance of individual players in a team activity’, PLoS ONE, 5(6). doi:\href{https://doi.org/10.1371/journal.pone.0010937}{10.1371/journal.pone.0010937}. \newline
+Football statistics and history (no date) FBref.com. Available at: \href{https://fbref.com/en/}{https://fbref.com/en/} (Accessed: 18 July 2024). \newline
+Frick, B. (2007) ‘The football players’ labor market: Empirical evidence from the major European Leagues’, Scottish Journal of Political Economy, 54(3), pp. 422–446. doi:\href{https://doi.org/10.1111/j.1467-9485.2007.00423.x}{10.1111/j.1467-9485.2007.00423.x}. \newline
+Groll, A. et al. (2018) Prediction of the FIFA World Cup 2018 - a random forest approach with an emphasis on estimated team ability parameters, arXiv.org. Available at: \href{https://doi.org/10.48550/arXiv.1806.03208}{https://doi.org/10.48550/arXiv.1806.03208} (Accessed: 18 July 2024). \newline
+He, M., Cachucho, R., \& Knobbe, A.J. (2015). Football Player's Performance and Market Value. \newline
+Jishnu, V.B. et al. (2022) ‘Football player transfer value prediction using advanced statistics and FIFA 22 data’, 2022 IEEE 19th India Council International Conference (INDICON) [Preprint]. doi:\href{https://doi.org/10.1109/indicon56171.2022.10040117}{10.1109/indicon56171.2022.10040117}. \newline
+Komorowski, M. et al. (2016) ‘Exploratory Data Analysis’, Secondary Analysis of Electronic Health Records, pp. 185–203. doi:\href{https://doi.org/10.1007/978-3-319-43742-2\_15}{10.1007/978-3-319-43742-2\_15}. \newline
+Lotfi, C., Srinivasan, S., Ertz, M.,Latrous, I. (2021). Web scraping techniques and applications: A literature review. SCRS CONFERENCE PROCEEDINGS ON INTELLIGENT SYSTEMS, 381–394. {doi:10.52458/978-93-91842-08-6-38} \newline
+M. Merzah, B., S. Croock, M. and N. Rashid, A. (2024) ‘Intelligent classifiers for Football Player Performance Based on Machine Learning Models’, International journal of electrical and computer engineering systems, 15(2), pp. 173–183. doi:\href{https://doi.org/10.32985/ijeces.15.2.6}{10.32985/ijeces.15.2.6}. \newline
+Majewski, S. (2016) ‘Identification of factors determining market value of the most valuable football players’, Journal of Management and Business Administration. Central Europe, 24(3), pp. 91–104. doi:\href{https://doi.org/10.7206/jmba.ce.2450-7814.177}{10.7206/jmba.ce.2450-7814.177}. \newline
+Mann, J.B. et al. (2022) ‘Momentum, rather than velocity, is a more effective measure of improvements in Division IA Football Player Performance’, Journal of Strength and Conditioning Research, 36(2), pp. 551–557. doi:\href{https://doi.org/10.1519/jsc.0000000000004206}{10.1519/jsc.0000000000004206}. \newline
+Maćkiewicz, A. and Ratajczak, W. (1993) ‘Principal Components Analysis (PCA)’, Computers \& Geosciences, 19(3), pp. 303–342. doi:\href{https://doi.org/10.1016/0098-3004(93)90090-r}{10.1016/0098-3004(93)90090-r}. \newline
+McCormack, S. et al. (2021) ‘Coaches’ assessment of players physical performance: Subjective and objective measures are needed when profiling players’, European Journal of Sport Science, 22(8), pp. 1177–1187. doi:\href{https://doi.org/10.1080/17461391.2021.1956600}{10.1080/17461391.2021.1956600}. \newline
+McHale, I.G., Scarf, P.A. and Folker, D.E. (2012) ‘On the development of a soccer player Performance Rating System for the English Premier League’, Interfaces, 42(4), pp. 339–351. doi:\href{https://doi.org/10.1287/inte.1110.0589}{10.1287/inte.1110.0589}. \newline
+McIntosh, S., Kovalchik, S. and Robertson, S. (2019) ‘Comparing subjective and objective evaluations of player performance in Australian Rules Football’, PLOS ONE, 14(8). doi:\href{https://doi.org/10.1371/journal.pone.0220901}{10.1371/journal.pone.0220901}. \newline
+Morciano, G. et al. (2022) ‘Machine learning prediction of the expected performance of football player during training’, 2022 IEEE International Conference on Metrology for Extended Reality, Artificial Intelligence and Neural Engineering (MetroXRAINE) [Preprint]. doi:\href{https://doi.org/10.1109/metroxraine54828.2022.9967621}{10.1109/metroxraine54828.2022.9967621}. \newline
+Newell, J. et al. (2006) ‘Using variable reduction techniques and tolerance intervals to summarise a fitness testing battery in soccer’, Journal of Quantitative Analysis in Sports, 2(4). doi:\href{https://doi.org/10.2202/1559-0410.1037}{10.2202/1559-0410.1037}. \newline
+O’Donoghue, P. (2008) ‘Principal components analysis in the selection of key performance indicators in sport’, International Journal of Performance Analysis in Sport, 8(3), pp. 145–155. doi:\href{https://doi.org/10.1080/24748668.2008.11868456}{10.1080/24748668.2008.11868456}. \newline
+Pantzalis, V.C. and Tjortjis, C. (2020) ‘Sports analytics for football league table and player performance prediction’, 2020 11th International Conference on Information, Intelligence, Systems and Applications (IISA) [Preprint]. doi:\href{https://doi.org/10.1109/iisa50023.2020.9284352}{10.1109/iisa50023.2020.9284352}. \newline
+Patnaik, D. et al. (2019) ‘A study of prediction models for football player valuations by Quantifying Statistical and economic attributes for the global transfer market’, 2019 IEEE International Conference on System, Computation, Automation and Networking (ICSCAN) [Preprint]. doi:\href{https://doi.org/10.1109/icscan.2019.8878843}{10.1109/icscan.2019.8878843}. \newline
+Patro, S.G.K. and Sahu, K.K. (2015) ‘Normalization: A preprocessing stage’, IARJSET, pp. 20–22. doi:\href{https://doi.org/10.17148/iarjset.2015.2305}{10.17148/iarjset.2015.2305}. \newline
+Pino-Ortega, J. et al. (2021) ‘Training design, performance analysis, and talent identification—a systematic review about the most relevant variables through the principal component analysis in soccer, basketball, and rugby’, International Journal of Environmental Research and Public Health, 18(5), p. 2642. doi:\href{https://doi.org/10.3390/ijerph18052642}{10.3390/ijerph18052642}. \newline
+Reed, G.F., Lynn, F. and Meade, B.D. (2002) ‘Use of coefficient of variation in assessing variability of quantitative assays’, Clinical and Vaccine Immunology, 9(6), pp. 1235–1239. doi:\href{https://doi.org/10.1128/cdli.9.6.1235-1239.2002}{10.1128/cdli.9.6.1235-1239.2002}. \newline
+Rodionova, O., Kucheryavskiy, S. and Pomerantsev, A. (2021) ‘Efficient tools for principal component analysis of complex data—a tutorial’, Chemometrics and Intelligent Laboratory Systems, 213, p. 104304. doi:\href{https://doi.org/10.1016/j.chemolab.2021.104304}{10.1016/j.chemolab.2021.104304}. \newline
+Rojas-Valverde, D. et al. (2020) ‘A systematic review of methods and criteria standard proposal for the use of principal component analysis in team’s sports science’, International Journal of Environmental Research and Public Health, 17(23), p. 8712. doi:\href{https://doi.org/10.3390/ijerph17238712}{10.3390/ijerph17238712}. \newline
+Sałabun, W. et al. (2020) ‘A fuzzy inference system for players evaluation in multi-player sports: The Football Study Case’, Symmetry, 12(12), p. 2029. doi:\href{https://doi.org/10.3390/sym12122029}{10.3390/sym12122029}. \newline
+Sedgwick, P. (2012) ‘Pearson’s correlation coefficient’, BMJ, 345(jul04 1). doi:\href{https://doi.org/10.1136/bmj.e4483}{10.1136/bmj.e4483}. \newline
+Singh, P. and Lamba, P.S. (2019) ‘Influence of crowdsourcing, popularity and previous year statistics in market value estimation of football players’, Journal of Discrete Mathematical Sciences and Cryptography, 22(2), pp. 113–126. doi:\href{https://doi.org/10.1080/09720529.2019.1576333}{10.1080/09720529.2019.1576333}. \newline
+Song, M.-K. et al. (2013) ‘Composite variables’, Nursing Research, 62(1), pp. 45–49. doi:\href{https://doi.org/10.1097/nnr.0b013e3182741948}{10.1097/nnr.0b013e3182741948}. \newline
+UmaMaheswari, P. and Rajaram, M. (2009) ‘A novel approach for mining association rules on sports data using Principal Component Analysis: For Cricket Match Perspective’, 2009 IEEE International Advance Computing Conference [Preprint]. doi:\href{https://doi.org/10.1109/iadcc.2009.4809163}{10.1109/iadcc.2009.4809163}. \newline
+Yi, Q. et al. (2020) ‘Evaluation of the technical performance of football players in the UEFA Champions League’, International Journal of Environmental Research and Public Health, 17(2), p. 604. doi:\href{https://doi.org/10.3390/ijerph17020604}{10.3390/ijerph17020604}. \newline
+Ćwiklinski, B., Giełczyk, A. and Choraś, M. (2021) ‘Who will score? A machine learning approach to supporting football team building and transfers’, Entropy, 23(1), p. 90. doi:\href{https://doi.org/10.3390/e23010090}{10.3390/e23010090}.
+</font>
+
+
+
+
+
+# Supplementary
+
+```{r, echo=FALSE, out.width='100%', fig.align='center', fig.cap= NULL, fig.pos = "H"}
+
+knitr::include_graphics("def_full_summary.png")
+
+```
+
+
+```{r, echo=FALSE, out.width='100%', fig.align='center', fig.cap= NULL, fig.pos = "H"}
+
+knitr::include_graphics("mid_full_summary.png")
+
+```
+
+```{r, echo=FALSE, out.width='100%', fig.align='center', fig.cap= NULL, fig.pos = "H"}
+
+knitr::include_graphics("fwd_full_summary.png")
+
+```
+
+```{r, echo=FALSE, out.width='100%', fig.align='center', fig.cap= NULL, fig.pos = "H"}
+
+knitr::include_graphics("Def_heatmap.png")
+
+```
+
+```{r, echo=FALSE, out.width='100%', fig.align='center', fig.cap= NULL, fig.pos = "H"}
+
+knitr::include_graphics("Mid_heatmap.png")
+
+```
+
+```{r, echo=FALSE, out.width='100%', fig.align='center', fig.cap= NULL, fig.pos = "H"}
+
+knitr::include_graphics("Fwd_heatmap.png")
+
+```
+
+
+
